@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# Name: Host Header Repeater Variants (Compact 30)
-# Purpose: Generate EXACTLY 30 high-signal Host/Proxy header test variants and send to Repeater.
-# Usage: Right-click any request (Proxy/Target/Repeater) -> "Send Host-Header Test Variants to Repeater"
+# Name: Host Header Repeater Variants (Compact 30, No Tab Names)
+# Purpose: Generate EXACTLY 30 high-signal Host/Proxy header variants and open them in Repeater.
+# Usage: Right-click any request (Proxy/Target/Repeater) -> "Send Host-Header Test Variants to Repeater (30)"
 #
 # Variant set (30 total, including baseline):
 #  00 Baseline (1)
@@ -50,7 +50,8 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
         return menu
 
     # ---------- utilities ----------
-    def _b(self, arr): return bytearray(arr)
+    def _b(self, arr): 
+        return bytearray(arr)
 
     def _get_service_info(self, httpService):
         return httpService.getHost(), httpService.getPort(), httpService.getProtocol().lower()
@@ -86,19 +87,6 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
     def _build(self, headers, body):
         return self.helpers.buildHttpMessage(headers, body)
 
-    def _slug_from_path(self, headers):
-        try:
-            reqline = headers[0]
-            path = reqline.split(" ")[1]
-        except Exception:
-            path = "/"
-        segs = [s for s in path.split("/") if s]
-        base = segs[-1] if segs else "root"
-        base = base.split("?")[0]
-        base = re.sub(r"\.[a-zA-Z0-9]+$", "", base)
-        base = re.sub(r"[^a-zA-Z0-9]+", " ", base).strip().title()
-        return base if base else "Root"
-
     def _set_request_line_absolute_url(self, headers, host, port, proto):
         reqline = headers[0]
         parts = reqline.split(" ")
@@ -119,77 +107,76 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
         headers, body, ar = self._req_headers_body(messageInfo)
         service = messageInfo.getHttpService()
         tgt_host, tgt_port, tgt_proto = self._get_service_info(service)
-        base = self._slug_from_path(headers)
 
         variants = []
 
         # 00 Baseline
-        variants.append(("%s_baseline_HH_%02d" % (base, self._next_id()), headers[:], body))
+        variants.append((headers[:], body))
 
         # Host replaced (3)
         for ph in TARGET_HOSTS:
             h = self._replace_or_add(headers[:], "Host", ph)
-            variants.append(("%s_host_replaced_%s_HH_%02d" % (base, ph, self._next_id()), h, body))
+            variants.append((h, body))
 
         # Duplicate Host (3)
         for ph in TARGET_HOSTS:
             h = self._replace_or_add(headers[:], "Host", ph, allow_duplicate=True)
-            variants.append(("%s_duplicate_host_%s_HH_%02d" % (base, ph, self._next_id()), h, body))
+            variants.append((h, body))
 
         # X-Forwarded-Host (3)
         for ph in TARGET_HOSTS:
             h = self._replace_or_add(headers[:], "X-Forwarded-Host", ph)
-            variants.append(("%s_xfh_%s_HH_%02d" % (base, ph, self._next_id()), h, body))
+            variants.append((h, body))
 
         # X-Original-Host (3)
         for ph in TARGET_HOSTS:
             h = self._replace_or_add(headers[:], "X-Original-Host", ph)
-            variants.append(("%s_xoh_%s_HH_%02d" % (base, ph, self._next_id()), h, body))
+            variants.append((h, body))
 
         # Forwarded (3)
         for ph in TARGET_HOSTS:
             fwd = "for=127.0.0.1;host=%s;proto=http" % ph
             h = self._replace_or_add(headers[:], "Forwarded", fwd)
-            variants.append(("%s_forwarded_%s_HH_%02d" % (base, ph, self._next_id()), h, body))
+            variants.append((h, body))
 
         # X-Forwarded-For (1)
         h = self._replace_or_add(headers[:], "X-Forwarded-For", LOCAL_CHAIN)
-        variants.append(("%s_xff_chain_HH_%02d" % (base, self._next_id()), h, body))
+        variants.append((h, body))
 
         # X-Forwarded-Proto http/https (2)
         h = self._replace_or_add(headers[:], "X-Forwarded-Proto", "http")
-        variants.append(("%s_xfp_http_HH_%02d" % (base, self._next_id()), h, body))
+        variants.append((h, body))
         h = self._replace_or_add(headers[:], "X-Forwarded-Proto", "https")
-        variants.append(("%s_xfp_https_HH_%02d" % (base, self._next_id()), h, body))
+        variants.append((h, body))
 
         # X-Forwarded-Port (4)
         for p in ALT_PORTS:
             h = self._replace_or_add(headers[:], "X-Forwarded-Port", str(p))
-            variants.append(("%s_xfpPort_%d_HH_%02d" % (base, p, self._next_id()), h, body))
+            variants.append((h, body))
 
         # Absolute-URL request line (2)
-        h = self._set_request_line_absolute_url(headers[:] , "evil-attacker.example", 80, "http")
-        variants.append(("%s_absurl_to_evil_HH_%02d" % (base, self._next_id()), h, body))
-        h = self._set_request_line_absolute_url(headers[:] , "127.0.0.1", 80, "http")
-        variants.append(("%s_absurl_to_localhost_HH_%02d" % (base, self._next_id()), h, body))
+        h = self._set_request_line_absolute_url(headers[:], "evil-attacker.example", 80, "http")
+        variants.append((h, body))
+        h = self._set_request_line_absolute_url(headers[:], "127.0.0.1", 80, "http")
+        variants.append((h, body))
 
         # Host trailing dot (1)
         h = self._replace_or_add(headers[:], "Host", tgt_host + ".")
-        variants.append(("%s_host_trailing_dot_HH_%02d" % (base, self._next_id()), h, body))
+        variants.append((h, body))
 
         # Conflicting: Host legit + XFH evil (1)
         h = self._replace_or_add(headers[:], "X-Forwarded-Host", "evil-attacker.example")
-        variants.append(("%s_conflict_host_xfh_HH_%02d" % (base, self._next_id()), h, body))
+        variants.append((h, body))
 
         # Remove Host (1)
         h = self._remove(headers[:], "Host")
-        variants.append(("%s_host_removed_HH_%02d" % (base, self._next_id()), h, body))
+        variants.append((h, body))
 
         # Origin + Referer spoof (2)
         h = self._replace_or_add(headers[:], "Origin", "http://evil-attacker.example")
-        variants.append(("%s_origin_evil_HH_%02d" % (base, self._next_id()), h, body))
+        variants.append((h, body))
         h = self._replace_or_add(headers[:], "Referer", "http://evil-attacker.example/")
-        variants.append(("%s_referer_evil_HH_%02d" % (base, self._next_id()), h, body))
+        variants.append((h, body))
 
         # Safety: ensure exactly 30
         return variants[:30]
@@ -203,7 +190,8 @@ class BurpExtender(IBurpExtender, IContextMenuFactory):
             service = mi.getHttpService()
             host, port, proto = self._get_service_info(service)
             use_tls = (proto == "https")
-            for tab_name, hdrs, body in self._gen_30(mi):
+            for hdrs, body in self._gen_30(mi):
                 req = self._build(hdrs, body)
-                self.cb.sendToRepeater(host, port, use_tls, req, "[HH] %s" % tab_name)
-        print("[+] Generated 30 curated Host/Proxy variants -> Repeater (prefixed [HH])")
+                # No custom tab name -> Burp uses compact "Repeater N"
+                self.cb.sendToRepeater(host, port, use_tls, req)
+        print("[+] Generated 30 curated Host/Proxy variants -> Repeater (auto-named tabs)")
